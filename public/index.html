@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Motors | Smart Car Market</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+
+    <style>
+        :root {
+            --neon-blue: #38bdf8;
+            --darkest-bg: #030712;
+            --white: #f7f7f7;
+            --muted: #a9adb5;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--darkest-bg);
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .background-car-container {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .background-car {
+            position: absolute;
+            inset: 0;
+            background-image: url("/mercedes-amg-gt3-speed-blur-desktop-wallpaper-cover.jpg");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: .85;
+        }
+
+        .background-car:before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(90deg, rgba(3,7,18,.85) 0%, rgba(3,7,18,.45) 48%, rgba(3,7,18,.85) 100%),
+                linear-gradient(180deg, rgba(3,7,18,.4) 0%, rgba(3,7,18,.2) 46%, rgba(3,7,18,.9) 100%);
+        }
+
+        .background-car:after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 38%, rgba(56,189,248,.08), transparent 40%);
+        }
+
+        .light-sweep-overlay {
+            position: absolute;
+            top: 25%;
+            left: 10%;
+            width: 80%;
+            height: 55%;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+            border-radius: 40%;
+            mix-blend-mode: overlay;
+        }
+
+        .light-sweep-beam {
+            position: absolute;
+            top: -50%;
+            left: -100%;
+            width: 60%;
+            height: 200%;
+            background: linear-gradient(
+                115deg,
+                transparent 0%,
+                rgba(255, 255, 255, 0.0) 30%,
+                rgba(255, 255, 255, 0.35) 50%,
+                rgba(255, 255, 255, 0.0) 70%,
+                transparent 100%
+            );
+            transform: skewX(-25deg);
+            filter: blur(14px);
+            animation: lightSweep 7s infinite ease-in-out;
+        }
+
+        @keyframes lightSweep {
+            0% { left: -120%; opacity: 0; }
+            15% { opacity: 0.85; }
+            45% { left: 140%; opacity: 0.85; }
+            60%, 100% { left: 140%; opacity: 0; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .light-sweep-beam { animation: none !important; display: none !important; }
+        }
+
+        .main-container {
+            position: relative;
+            z-index: 2;
+            max-width: 1240px;
+            margin: 0 auto;
+            padding: 2.5rem 1.25rem 4rem;
+        }
+
+        .hero-box {
+            position: relative;
+            min-height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            margin: 0 auto 1.25rem;
+        }
+
+        .hero-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hero-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 16px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.7);
+            color: #e2e8f0;
+            font-size: .72rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            backdrop-filter: blur(10px);
+        }
+
+        .hero-title {
+            margin: 0;
+            color: #fff;
+            font-size: clamp(2.6rem, 5vw, 4.2rem);
+            line-height: 1.1;
+            font-weight: 800;
+            letter-spacing: -2px;
+            text-shadow: 0 10px 40px rgba(0,0,0,.9);
+        }
+
+        .hero-title span {
+            color: var(--neon-blue);
+            text-shadow: 0 0 30px rgba(56, 189, 248, 0.5);
+        }
+
+        .hero-subtitle {
+            color: #d1d5db;
+            font-size: .95rem;
+            max-width: 620px;
+            margin: 12px auto 0;
+            line-height: 1.55;
+            text-shadow: 0 3px 18px #000;
+        }
+
+        .hero-line {
+            width: 54px;
+            height: 3px;
+            background: var(--neon-blue);
+            border-radius: 99px;
+            margin: 12px auto 0;
+            box-shadow: 0 0 20px rgba(56,189,248,.5);
+        }
+
+        .feature-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            max-width: 760px;
+            margin: 16px auto 25px;
+            gap: 0;
+        }
+
+        .feature-item {
+            text-align: center;
+            padding: 5px 18px;
+            border-right: 1px solid rgba(255,255,255,.14);
+        }
+
+        .feature-item:last-child {
+            border-right: 0;
+        }
+
+        .feature-icon {
+            color: var(--neon-blue);
+            font-size: 1rem;
+            margin-bottom: 3px;
+        }
+
+        .feature-title {
+            color: #fff;
+            font-size: .78rem;
+            font-weight: 700;
+        }
+
+        .feature-desc {
+            color: #9ca3af;
+            font-size: .65rem;
+            margin-top: 2px;
+        }
+
+        .search-box-container {
+            max-width: 760px;
+            margin: 0 auto 20px;
+            position: relative;
+        }
+
+        .search-form {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(3, 7, 18, 0.96) 100%);
+            border: 1.2px solid rgba(56, 189, 248, 0.4);
+            border-radius: 999px;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(56, 189, 248, 0.2);
+            backdrop-filter: blur(18px);
+            padding: 0 16px 0 24px;
+            display: flex;
+            align-items: center;
+            height: 54px;
+            gap: 12px;
+        }
+
+        .search-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .search-input::placeholder {
+            color: #94a3b8;
+        }
+
+        .cam-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1.25rem;
+            opacity: 0.85;
+            transition: transform 0.2s ease;
+        }
+
+        .cam-btn:hover {
+            transform: scale(1.2);
+            opacity: 1;
+        }
+
+        .image-preview-container {
+            max-width: 760px;
+            margin: 12px auto 0;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 12px;
+            padding: 8px 14px;
+            backdrop-filter: blur(10px);
+        }
+
+        .preview-img {
+            width: 46px;
+            height: 46px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--neon-blue);
+        }
+
+        .preview-details {
+            flex: 1;
+            font-size: 0.85rem;
+            color: #e2e8f0;
+        }
+
+        .preview-remove-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            border-radius: 6px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .preview-remove-btn:hover {
+            background: rgba(239, 68, 68, 0.4);
+        }
+
+        .detected-badge-box {
+            text-align: center;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .detected-badge {
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid var(--neon-blue);
+            color: #fff;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            display: inline-block;
+        }
+
+        .results-header {
+            color: #fff;
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin: 35px auto 18px;
+            max-width: 1200px;
+            display: none;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 22px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 992px) {
+            .results-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 640px) {
+            .results-grid { grid-template-columns: 1fr; }
+            .feature-row { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+            .feature-item { border-right: none; }
+        }
+
+        .car-card {
+            background: rgba(10, 12, 16, 0.85);
+            border: 1.2px solid rgba(56, 189, 248, 0.22);
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 14px 35px rgba(0,0,0,.6);
+            backdrop-filter: blur(14px);
+            transition: all 0.25s ease;
+        }
+
+        .car-card:hover {
+            border-color: rgba(56, 189, 248, 0.55);
+            transform: translateY(-3px);
+            box-shadow: 0 18px 45px rgba(56, 189, 248, 0.15);
+        }
+
+        .card-img-wrap {
+            position: relative;
+            width: 100%;
+            height: 175px;
+            background: #090d16;
+            overflow: hidden;
+        }
+
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .car-card:hover .card-img { transform: scale(1.04); }
+
+        .card-img-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0b111e 0%, #050811 100%);
+            color: #475569;
+        }
+
+        .card-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            gap: 10px;
+        }
+
+        .card-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .card-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.3;
+        }
+
+        .deal-badge-great {
+            background: rgba(34,197,94,.15);
+            border: 1px solid rgba(34,197,94,.65);
+            color: #86efac;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: .75rem;
+            white-space: nowrap;
+        }
+
+        .deal-badge-overpriced {
+            background: rgba(239,68,68,.15);
+            border: 1px solid rgba(239,68,68,.65);
+            color: #fca5a5;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: .75rem;
+            white-space: nowrap;
+        }
+
+        .deal-badge-fair {
+            background: rgba(56,189,248,.15);
+            border: 1px solid rgba(56,189,248,.65);
+            color: #bae6fd;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: .75rem;
+            white-space: nowrap;
+        }
+
+        .deal-badge-none {
+            background: rgba(148, 163, 184, 0.12);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            color: #94a3b8;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: .75rem;
+            white-space: nowrap;
+        }
+
+        .card-specs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            color: #94a3b8;
+            font-size: 0.8rem;
+        }
+
+        .card-price-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: 4px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.07);
+        }
+
+        .price-item-label {
+            color: #94a3b8;
+            font-size: 0.75rem;
+            display: block;
+        }
+
+        .price-item-val {
+            color: #ffffff;
+            font-size: 1.15rem;
+            font-weight: 800;
+        }
+
+        .fair-item-val {
+            color: var(--neon-blue);
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .unassessed-text {
+            color: #64748b;
+            font-size: 0.82rem;
+            font-weight: 500;
+        }
+
+        .card-footer {
+            margin-top: auto;
+            padding-top: 12px;
+        }
+
+        .view-btn {
+            display: block;
+            width: 100%;
+            text-align: center;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid var(--neon-blue);
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+
+        .view-btn:hover {
+            background: rgba(56, 189, 248, 0.28);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.35);
+        }
+
+        .load-more-wrap {
+            text-align: center;
+            margin: 32px 0 20px;
+            display: none;
+        }
+
+        .load-more-btn {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(3, 7, 18, 0.95) 100%);
+            border: 1.5px solid var(--neon-blue);
+            color: #ffffff;
+            padding: 12px 32px;
+            border-radius: 999px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            transition: all 0.2s ease;
+        }
+
+        .load-more-btn:hover {
+            background: rgba(56, 189, 248, 0.2);
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #8b929a;
+            margin-top: 50px;
+            font-size: 0.95rem;
+        }
+
+        .error-box {
+            max-width: 760px;
+            margin: 25px auto;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #fca5a5;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 0.92rem;
+            display: none;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            color: var(--neon-blue);
+            font-weight: 600;
+            margin: 40px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-car-container">
+        <div class="background-car"></div>
+        <div class="light-sweep-overlay">
+            <div class="light-sweep-beam"></div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="hero-box">
+            <div class="hero-content">
+                <div class="hero-kicker">✦ SMART CAR MARKET</div>
+                <h1 class="hero-title">Apex <span>Motors</span></h1>
+                <div class="hero-line"></div>
+                <div class="hero-subtitle">Find the right car, get expert insights, and make smarter decisions with the power of AI.</div>
+            </div>
+        </div>
+
+        <div class="feature-row">
+            <div class="feature-item"><div class="feature-icon">⌁</div><div class="feature-title">Analysis</div><div class="feature-desc">Understand your needs</div></div>
+            <div class="feature-item"><div class="feature-icon">▧</div><div class="feature-title">Image Detection</div><div class="feature-desc">Identify car details</div></div>
+            <div class="feature-item"><div class="feature-icon">◇</div><div class="feature-title">Price Prediction</div><div class="feature-desc">Get fair market value</div></div>
+            <div class="feature-item"><div class="feature-icon">▥</div><div class="feature-title">Smart Results</div><div class="feature-desc">Best matches for you</div></div>
+        </div>
+
+        <div class="search-box-container">
+            <form class="search-form" id="search-form" onsubmit="event.preventDefault(); initiateNewSearch();">
+                <input type="text" id="search-input" class="search-input" placeholder="Type your car requirements and press Enter..." autocomplete="off">
+                <button type="button" class="cam-btn" id="cam-btn" title="Upload car image for AI recognition" onclick="triggerImageSelect()">📷</button>
+                <input type="file" id="image-input" accept="image/*" style="display: none;">
+            </form>
+
+            <div class="image-preview-container" id="image-preview-container">
+                <img id="preview-img" class="preview-img" src="" alt="Selected vehicle preview">
+                <div class="preview-details">
+                    <strong id="preview-filename">car.jpg</strong>
+                    <div style="font-size: 0.75rem; color: #94a3b8;" id="preview-filesize">Image selected</div>
+                </div>
+                <button type="button" class="preview-remove-btn" onclick="clearSelectedImage()">✕ Remove</button>
+            </div>
+        </div>
+
+        <div class="detected-badge-box" id="detected-badge-box">
+            <span class="detected-badge" id="detected-badge">📷 Detected Vehicle: --</span>
+        </div>
+
+        <div class="loading-spinner" id="loading-spinner">
+            ⚡ Searching market & running CatBoost valuation...
+        </div>
+
+        <div class="error-box" id="error-box"></div>
+
+        <div class="results-header" id="results-header"></div>
+        <div class="results-grid" id="results-grid"></div>
+
+        <div class="load-more-wrap" id="load-more-wrap">
+            <button type="button" class="load-more-btn" id="load-more-btn" onclick="loadNextPage()">Load More Vehicles 🚗</button>
+        </div>
+
+        <div class="empty-state" id="empty-state">
+            Type your search query above and press <strong>Enter</strong> (e.g. <em>Toyota Corolla</em>, <em>Kia Sportage</em>, <em>Mercedes C180</em>), or click the camera icon 📷 to analyze a vehicle photo.
+        </div>
+    </div>
+
+    <script>
+        let activeImageFile = null;
+        let activeRequestId = 0;
+        let currentSearchQuery = "";
+        let currentPage = 1;
+        let loadedCount = 0;
+
+        function triggerImageSelect() {
+            document.getElementById('image-input').click();
+        }
+
+        document.getElementById('image-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.type || !file.type.startsWith('image/')) {
+                showError("Selected file is not an image. Please select a JPG or PNG file.");
+                return;
+            }
+
+            activeImageFile = file;
+            showImagePreview(file);
+            processUploadedImage(file);
+        });
+
+        function showImagePreview(file) {
+            const previewBox = document.getElementById('image-preview-container');
+            const previewImg = document.getElementById('preview-img');
+            const filenameEl = document.getElementById('preview-filename');
+            const filesizeEl = document.getElementById('preview-filesize');
+
+            filenameEl.textContent = file.name;
+            filesizeEl.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                previewBox.style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearSelectedImage() {
+            activeImageFile = null;
+            document.getElementById('image-input').value = '';
+            document.getElementById('image-preview-container').style.display = 'none';
+            document.getElementById('detected-badge-box').style.display = 'none';
+            hideError();
+        }
+
+        function showError(msg) {
+            const errBox = document.getElementById('error-box');
+            errBox.textContent = msg;
+            errBox.style.display = 'block';
+            document.getElementById('loading-spinner').style.display = 'none';
+        }
+
+        function hideError() {
+            const errBox = document.getElementById('error-box');
+            errBox.style.display = 'none';
+            errBox.textContent = '';
+        }
+
+        async function processUploadedImage(file) {
+            hideError();
+            const currentReqId = ++activeRequestId;
+            const spinner = document.getElementById("loading-spinner");
+            const header = document.getElementById("results-header");
+            const grid = document.getElementById("results-grid");
+            const emptyState = document.getElementById("empty-state");
+            const badgeBox = document.getElementById("detected-badge-box");
+            const badge = document.getElementById("detected-badge");
+            const loadMoreWrap = document.getElementById("load-more-wrap");
+
+            spinner.innerHTML = "⚡ Analyzing vehicle image with Vision AI...";
+            spinner.style.display = "block";
+            header.style.display = "none";
+            grid.innerHTML = "";
+            emptyState.style.display = "none";
+            badgeBox.style.display = "none";
+            loadMoreWrap.style.display = "none";
+
+            const formData = new FormData();
+            formData.append("image", file);
+
+            try {
+                const response = await fetch('/api/classify', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (currentReqId !== activeRequestId) return;
+
+                if (response.ok && data.success && data.label) {
+                    const detectedLabel = data.label;
+                    const confidence = data.confidence ? ` (${data.confidence}%)` : '';
+                    badge.innerHTML = `📷 Detected Vehicle: <strong>${detectedLabel}</strong>${confidence}`;
+                    badgeBox.style.display = "block";
+
+                    document.getElementById("search-input").value = detectedLabel;
+                    initiateNewSearch(detectedLabel);
+                    return;
+                }
+            } catch (err) {
+                console.warn("Server API image classification error:", err);
+            }
+
+            // Client-side Browser AI Vision Fallback (with smart generic filter)
+            if (window.mobilenet) {
+                try {
+                    const imgEl = document.getElementById("preview-img");
+                    if (imgEl && imgEl.src) {
+                        spinner.innerHTML = "⚡ Running Browser AI Vision model...";
+                        const model = await mobilenet.load();
+                        const predictions = await model.classify(imgEl);
+                        if (currentReqId !== activeRequestId) return;
+
+                        if (predictions && predictions.length > 0) {
+                            const topLabel = predictions[0].className.split(',')[0].trim().toLowerCase();
+                            
+                            const genericTerms = ["sports car", "sport car", "convertible", "coupe", "minivan", "moving van", "pickup", "limousine", "beach wagon", "racer", "car", "truck", "motor vehicle"];
+                            
+                            if (genericTerms.includes(topLabel)) {
+                                spinner.style.display = "none";
+                                showError(`⚠️ AI detected a generic '${topLabel}'. Please type the exact brand (e.g., Kia, Toyota) in the search box for better results.`);
+                                return;
+                            }
+
+                            const conf = Math.round(predictions[0].probability * 100);
+                            const cleanLabel = topLabel.charAt(0).toUpperCase() + topLabel.slice(1);
+                            
+                            badge.innerHTML = `📷 Identified Vehicle (AI Vision): <strong>${cleanLabel}</strong> (${conf}%)`;
+                            badgeBox.style.display = "block";
+
+                            document.getElementById("search-input").value = cleanLabel;
+                            initiateNewSearch(cleanLabel);
+                            return;
+                        }
+                    }
+                } catch (clientErr) {
+                    console.warn("Client MobileNet fallback error:", clientErr);
+                }
+            }
+
+            if (currentReqId === activeRequestId) {
+                showError("⚠️ Unable to identify vehicle model in uploaded photo. Try a clear exterior car image or search by text above.");
+            }
+        }
+
+        function initiateNewSearch(queryText = null) {
+            const input = document.getElementById("search-input");
+            const query = (queryText !== null ? queryText : input.value).trim();
+            currentSearchQuery = query;
+            currentPage = 1;
+            loadedCount = 0;
+            document.getElementById("results-grid").innerHTML = "";
+            fetchVehicles(query, 1, false);
+        }
+
+        function loadNextPage() {
+            if (!currentSearchQuery) return;
+            currentPage++;
+            fetchVehicles(currentSearchQuery, currentPage, true);
+        }
+
+        async function fetchVehicles(query, page = 1, append = false) {
+            hideError();
+            const spinner = document.getElementById("loading-spinner");
+            const header = document.getElementById("results-header");
+            const grid = document.getElementById("results-grid");
+            const emptyState = document.getElementById("empty-state");
+            const loadMoreWrap = document.getElementById("load-more-wrap");
+
+            if (!query) {
+                spinner.style.display = "none";
+                header.style.display = "none";
+                grid.innerHTML = "";
+                loadMoreWrap.style.display = "none";
+                emptyState.style.display = "block";
+                emptyState.innerHTML = "Please enter a vehicle make or model to search (e.g. <em>Toyota Corolla</em>, <em>Kia Sportage</em>, <em>Mercedes C180</em>), or upload a car photo 📷";
+                return;
+            }
+
+            const currentReqId = ++activeRequestId;
+
+            if (!append) {
+                spinner.innerHTML = "⚡ Searching market & running CatBoost valuation...";
+                spinner.style.display = "block";
+                header.style.display = "none";
+                loadMoreWrap.style.display = "none";
+                emptyState.style.display = "none";
+            } else {
+                document.getElementById("load-more-btn").textContent = "⚡ Loading more vehicles...";
+            }
+
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&page=${page}`);
+                const data = await response.json();
+
+                if (currentReqId !== activeRequestId && !append) return;
+
+                spinner.style.display = "none";
+                document.getElementById("load-more-btn").textContent = "Load More Vehicles 🚗";
+
+                if (!data.results || data.results.length === 0) {
+                    if (!append) {
+                        header.style.display = "none";
+                        grid.innerHTML = "";
+                        loadMoreWrap.style.display = "none";
+                        emptyState.style.display = "block";
+                        emptyState.innerHTML = `No matching vehicle listings found for "${query}". Try searching by make or model.`;
+                    } else {
+                        loadMoreWrap.style.display = "none";
+                    }
+                    return;
+                }
+
+                loadedCount += data.results.length;
+                header.textContent = `🎯 Live Market Results for: "${data.query || query}" (${loadedCount} vehicles loaded)`;
+                header.style.display = "block";
+
+                data.results.forEach(r => {
+                    let badgeHtml = "";
+                    if (r.deal_label && r.deal_label !== "Not assessed") {
+                        if (r.deal_label.includes("Great Deal")) {
+                            badgeHtml = '<span class="deal-badge-great">🟢 Great Deal</span>';
+                        } else if (r.deal_label.includes("Overpriced")) {
+                            badgeHtml = '<span class="deal-badge-overpriced">🔴 Overpriced</span>';
+                        } else {
+                            badgeHtml = '<span class="deal-badge-fair">🟡 Fair Price</span>';
+                        }
+                    } else {
+                        badgeHtml = '<span class="deal-badge-none">⚪ Not assessed</span>';
+                    }
+
+                    let mileageText = "Not provided";
+                    if (r.mileage === 0) {
+                        mileageText = "0 km";
+                    } else if (r.mileage && r.mileage > 0) {
+                        mileageText = `${Number(r.mileage).toLocaleString()} km`;
+                    }
+
+                    let priceText = "Price on request";
+                    if (r.price && r.price > 0) {
+                        priceText = `${Number(r.price).toLocaleString()} EGP`;
+                    }
+
+                    let fairPriceText = '<span class="unassessed-text">Not assessed</span>';
+                    if (r.predicted_fair_price && r.predicted_fair_price > 0) {
+                        fairPriceText = `<strong class="fair-item-val">${Number(r.predicted_fair_price).toLocaleString()} EGP</strong>`;
+                    }
+
+                    let matchHtml = "";
+                    if (r.match_score !== null && r.match_score !== undefined) {
+                        matchHtml = `<span>⚡ Match: ${r.match_score}%</span>`;
+                    }
+
+                    let imgHtml = "";
+                    if (r.image_url) {
+                        imgHtml = `<img src="${r.image_url}" alt="${r.name}" class="card-img" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=card-img-placeholder><svg width=40 height=40 fill=none stroke=currentColor viewBox=\\'0 0 24 24\\'><path stroke-linecap=round stroke-linejoin=round stroke-width=1.5 d=\\'M8 17a2 2 0 100 4 2 2 0 000-4ptm8 0a2 2 0 100 4 2 2 0 000-4ptm-11 0h6m-13-5l2-6h10l2 6m-14 0h16v3H3v-3z\\'/></svg><span style=\\'font-size:0.7rem; margin-top:4px;\\'>Photo Unavailable</span></div>';">`;
+                    } else {
+                        imgHtml = `<div class="card-img-placeholder"><svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 17a2 2 0 100 4 2 2 0 000-4ptm8 0a2 2 0 100 4 2 2 0 000-4ptm-11 0h6m-13-5l2-6h10l2 6m-14 0h16v3H3v-3z"/></svg><span style="font-size:0.7rem; margin-top:4px;">Photo Unavailable</span></div>`;
+                    }
+
+                    const card = document.createElement("div");
+                    card.className = "car-card";
+                    card.innerHTML = `
+                        <div class="card-img-wrap">
+                            ${imgHtml}
+                        </div>
+                        <div class="card-body">
+                            <div class="card-title-row">
+                                <h3 class="card-title">${r.name}</h3>
+                                <div>${badgeHtml}</div>
+                            </div>
+                            <div class="card-specs">
+                                <span>⚙️ ${r.transmission}</span>
+                                <span>🛣️ ${mileageText}</span>
+                                <span>📍 ${r.location}</span>
+                                ${matchHtml}
+                            </div>
+                            <div class="card-price-area">
+                                <div>
+                                    <span class="price-item-label">Listed Price:</span>
+                                    <span class="price-item-val">${priceText}</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="price-item-label">Fair Price (CatBoost):</span>
+                                    ${fairPriceText}
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <a href="${r.item_url}" target="_blank" rel="noopener noreferrer" class="view-btn">View Listing ↗</a>
+                            </div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+
+                if (data.has_more) {
+                    loadMoreWrap.style.display = "block";
+                } else {
+                    loadMoreWrap.style.display = "none";
+                }
+            } catch (err) {
+                if (currentReqId !== activeRequestId && !append) return;
+                spinner.style.display = "none";
+                showError("⚠️ Failed to load search results. Please try again.");
+            }
+        }
+    </script>
+</body>
+</html>
