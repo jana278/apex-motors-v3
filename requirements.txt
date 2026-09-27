@@ -5,3 +5,4 @@ joblib
 catboost
 pillow
 flask
+gunicorn
