@@ -19,5 +19,13 @@
       "src": "/(.*)",
       "dest": "public/$1"
     }
+    {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app.py": {
+      "excludeFiles": "{tests/**,__tests__/**,**/*.test.py,**/test_*.py,fixtures/**,__fixtures__/**,testdata/**,sample-data/**,static/**,assets/**}"
+    }
+  }
+}
   ]
 }
